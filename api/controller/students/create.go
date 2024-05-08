@@ -5,19 +5,21 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nathaliapavan/edu-api/api/controller"
-	"github.com/nathaliapavan/edu-api/entities"
+	students_usecase "github.com/nathaliapavan/edu-api/usecase/students"
 )
 
 func Create(c *gin.Context) {
 	var input Input
-	err := c.Bind(&input)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, controller.NewResponseErrorMessage("unable to get payload"))
+	if err := c.Bind(&input); err != nil {
+		c.JSON(http.StatusBadRequest, controller.NewResponseErrorMessage("unable to get payload"))
 		return
 	}
 
-	student := entities.NewStudent(input.Name, input.Age)
-	entities.Students = append(entities.Students, *student)
+	student, err := students_usecase.Create(input.Name, input.Age)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, controller.NewResponseErrorMessage("unable to create student"))
+		return
+	}
 
 	c.JSON(http.StatusCreated, student)
 }
