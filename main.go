@@ -2,9 +2,10 @@ package main
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/nathaliapavan/edu-api/shared"
 )
 
 func routeHealth(c *gin.Context) {
@@ -14,13 +15,13 @@ func routeHealth(c *gin.Context) {
 }
 
 type Student struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-	Age  int    `json:"age"`
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	Age  int       `json:"age"`
 }
 
 var Students = []Student{
-	{ID: 1, Name: "Peter Parker", Age: 18},
+	{ID: shared.GetUuid(), Name: "Peter Parker", Age: 18},
 }
 
 func routeGetStudents(c *gin.Context) {
@@ -28,29 +29,33 @@ func routeGetStudents(c *gin.Context) {
 }
 
 func routeGetStudent(c *gin.Context) {
-	id, err := strconv.Atoi(c.Params.ByName("id"))
+	idByParam := c.Params.ByName("id")
+	uuid, err := shared.GetUuidByString(idByParam)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{
-			"error": "id not found",
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "error generating uuid",
 		})
 		return
 	}
 
-	var student Student
-	for _, studentElement := range Students {
-		if studentElement.ID == id {
-			student = studentElement
+	studentIndex := -1
+	var studentFound Student
+	for i, studentElement := range Students {
+		if studentElement.ID == uuid {
+			studentIndex = i
+			studentFound = studentElement
+			break
 		}
 	}
 
-	if student.ID == 0 {
+	if studentIndex == -1 {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "student not found",
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, student)
+	c.JSON(http.StatusOK, studentFound)
 }
 
 func routePostStudent(c *gin.Context) {
@@ -62,7 +67,7 @@ func routePostStudent(c *gin.Context) {
 		})
 		return
 	}
-	student.ID = len(Students) + 1
+	student.ID = shared.GetUuid()
 	Students = append(Students, student)
 	c.JSON(http.StatusCreated, student)
 }
@@ -79,17 +84,18 @@ func routePutStudent(c *gin.Context) {
 		return
 	}
 
-	id, err := strconv.Atoi(c.Params.ByName("id"))
+	idByParam := c.Params.ByName("id")
+	uuid, err := shared.GetUuidByString(idByParam)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{
-			"error": "id not found",
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "error generating uuid",
 		})
 		return
 	}
 
 	studentIndex := -1
 	for i, studentElement := range Students {
-		if studentElement.ID == id {
+		if studentElement.ID == uuid {
 			studentIndex = i
 			matchStudent = studentElement
 			break
@@ -113,16 +119,18 @@ func routePutStudent(c *gin.Context) {
 }
 
 func routeDeleteStudent(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+	idByParam := c.Params.ByName("id")
+	uuid, err := shared.GetUuidByString(idByParam)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "id not found",
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "error generating uuid",
 		})
+		return
 	}
 
 	studentIndex := -1
 	for i, studentElement := range Students {
-		if studentElement.ID == id {
+		if studentElement.ID == uuid {
 			studentIndex = i
 			break
 		}
@@ -143,6 +151,7 @@ func routeDeleteStudent(c *gin.Context) {
 }
 
 func main() {
+	gin.ForceConsoleColor()
 	service := gin.Default()
 	getRoutes(service)
 	service.Run()
